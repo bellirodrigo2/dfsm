@@ -1,6 +1,6 @@
 import type { DsmConfig } from '../domain/config'
 
-const CONFIG_URL = '/config/dsm.config.json'
+const CONFIG_URL = './config/dsm.config.json'
 
 let cachedConfig: DsmConfig | null = null
 

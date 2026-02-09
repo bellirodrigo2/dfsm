@@ -27,7 +27,7 @@ onMounted(async () => {
     <div class="error-content">
       <h1>Application Error</h1>
       <p>{{ configError }}</p>
-      <p class="hint">Check that /config/dsm.config.json is accessible and valid.</p>
+      <p class="hint">Check that config/dsm.config.json is accessible and valid.</p>
     </div>
   </div>
   <div v-else-if="!initialized" class="loading-screen">
