@@ -1,0 +1,35 @@
+{
+  "name": "dfsm",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage"
+  },
+  "dependencies": {
+    "vue": "^3.5.25",
+    "vue-router": "^4.5.0",
+    "pinia": "^3.0.0",
+    "@tanstack/vue-query": "^5.75.0",
+    "ky": "^1.8.0",
+    "@primeuix/themes": "^1.0.0",
+    "primevue": "^4.3.0",
+    "primeicons": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@vitejs/plugin-vue": "^6.0.2",
+    "@vue/tsconfig": "^0.8.1",
+    "@vue/test-utils": "^2.4.6",
+    "typescript": "~5.9.3",
+    "vite": "^7.3.1",
+    "vue-tsc": "^3.1.5",
+    "vitest": "^3.2.0",
+    "jsdom": "^26.1.0"
+  }
+}
