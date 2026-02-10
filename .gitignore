@@ -26,7 +26,7 @@ dist-ssr
 # Test environment configuration (contains credentials)
 .env.test
 
-public/dsm.config.json
+public/config/dsm.config.json
 
 # Test coverage
 coverage
