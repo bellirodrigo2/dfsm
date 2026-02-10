@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "piWebApi": {
+    "baseUrl": "/piwebapi",
+    "timeoutMs": 15000,
+    "retry": {
+      "enabled": true,
+      "maxAttempts": 3,
+      "baseDelayMs": 200
+    },
+    "cors": {
+      "withCredentials": true
+    }
+  },
+  "af": {
+    "root": {
+      "strategy": "webId",
+      "primary": {
+        "elementWebId": "F1Em_v7LqlZaAkW49B2ZP1gZGgzZv-ZnQG8RGRiQAVXQAbKATU9HSSBHVUFDVVxERlNNX0RCXERGU01fUk9PVA"
+      },
+      "fallback": {
+        "afServerName": "Mogi Guacu",
+        "databaseName": "DFSM_DB",
+        "elementPath": "\\DFSM_ROOT"
+      }
+    },
+    "naming": {
+      "userName": {
+        "replaceBackslashWith": "_",
+        "uppercase": true
+      },
+      "sanitize": {
+        "collapseWhitespace": true,
+        "maxNameLength": 255
+      }
+    },
+    "reservedAttributes": {
+      "metadataJson": "DSM__METADATA_JSON",
+      "permissionsJson": "DSM__PERMISSIONS_JSON"
+    }
+  },
+  "features": {
+    "sharedPermissions": true,
+    "tagSearch": {
+      "minChars": 2,
+      "debounceMs": 120,
+      "limit": 50,
+      "virtualizeAbove": 50,
+      "enableCache": true
+    },
+    "executionContext": {
+      "enabled": false,
+      "defaultTimeZone": "America/New_York"
+    }
+  }
+}
