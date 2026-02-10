@@ -5,6 +5,7 @@ import { normalizeUsername } from '../domain/user'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<UserInfo | null>(null)
+  const userElementWebId = ref<string | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
 
@@ -27,6 +28,10 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null
   }
 
+  function setUserElementWebId(webId: string): void {
+    userElementWebId.value = webId
+  }
+
   function setLoading(isLoading: boolean): void {
     loading.value = isLoading
   }
@@ -37,16 +42,19 @@ export const useAuthStore = defineStore('auth', () => {
 
   function clearUser(): void {
     user.value = null
+    userElementWebId.value = null
   }
 
   return {
     user,
+    userElementWebId,
     loading,
     error,
     isAuthenticated,
     displayName,
     normalizedName,
     setUser,
+    setUserElementWebId,
     setLoading,
     setError,
     clearUser,

@@ -21,4 +21,15 @@ export {
   getTagById,
   getTagByPath,
 } from './tags'
+export {
+  getAfRootWebId,
+  clearAfRootCache,
+  getAfDatabaseWebId,
+} from './afroot'
+export {
+  getOrCreateUserElement,
+  getUserElementWebId,
+  userElementExists,
+  listUserElements,
+} from './userelements'
 export type { PiWebApiClientOptions } from './client'

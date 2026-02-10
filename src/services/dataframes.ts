@@ -10,27 +10,16 @@ import {
 import { useAuthStore } from '../stores/auth'
 
 /**
- * Get the current user's element WebId
- * This would normally be resolved from the API, but for now we'll need to track it
- */
-let userElementWebId: string | null = null
-
-export function setUserElementWebId(webId: string): void {
-  userElementWebId = webId
-}
-
-export function getUserElementWebId(): string | null {
-  return userElementWebId
-}
-
-/**
  * List all DataFrames owned by the current user
  */
 export async function listMyDataFrames(): Promise<DataFrame[]> {
-  if (!userElementWebId) {
-    throw new Error('User element not initialized')
+  const authStore = useAuthStore()
+
+  if (!authStore.userElementWebId) {
+    throw new Error('User element not initialized. Please authenticate first.')
   }
-  return apiListDataFrames(userElementWebId)
+
+  return apiListDataFrames(authStore.userElementWebId)
 }
 
 /**
@@ -50,16 +39,17 @@ export async function createNewDataFrame(input: CreateDataFrameInput): Promise<D
     throw new Error(validation.error)
   }
 
-  if (!userElementWebId) {
-    throw new Error('User element not initialized')
+  const authStore = useAuthStore()
+
+  if (!authStore.userElementWebId) {
+    throw new Error('User element not initialized. Please authenticate first.')
   }
 
-  const authStore = useAuthStore()
   if (!authStore.user?.sid) {
     throw new Error('User not authenticated')
   }
 
-  return apiCreateDataFrame(userElementWebId, input, authStore.user.sid)
+  return apiCreateDataFrame(authStore.userElementWebId, input, authStore.user.sid)
 }
 
 /**

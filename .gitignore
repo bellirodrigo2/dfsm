@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test environment configuration (contains credentials)
+.env.test
+
+public/dsm.config.json
+
+# Test coverage
+coverage
+.nyc_output

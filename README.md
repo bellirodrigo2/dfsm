@@ -126,15 +126,86 @@ tagSearch.open({
 
 ## Testing
 
-Tests use Vitest with jsdom environment. Mocks are located in `src/tests/mocks/`.
+DFSM uses a multi-layered testing strategy:
+
+### Unit Tests
+
+Fast, isolated tests with mocks - no PI Web API required.
 
 ```bash
-# Run tests
+# Run unit tests
+pnpm test
+pnpm test:unit
+
+# Watch mode
 pnpm test
 
-# Run tests with UI
-pnpm test --ui
+# With UI
+pnpm test:ui
+
+# Coverage
+pnpm test:coverage
 ```
+
+### Contract Tests
+
+Integration tests against a real PI Web API server to validate API contracts.
+
+**Requirements:**
+
+- Dedicated AF Database for testing (e.g., `DSM_TEST_DB`)
+- Test user credentials with read/write permissions
+- Test root element in AF (WebId or path)
+
+**Quick Setup:**
+
+```bash
+# 1. Copy environment template
+cp .env.test.example .env.test
+
+# 2. Configure test environment (edit .env.test)
+TEST_PIWEBAPI_URL=https://piwebapi-dev.company.com/piwebapi
+TEST_PIWEBAPI_USERNAME=your_username
+TEST_PIWEBAPI_PASSWORD=your_password
+TEST_PIWEBAPI_DOMAIN=COMPANY
+TEST_AF_ROOT_WEBID=F1AbCDeFgHiJk...  # Get from PI System Explorer
+
+# 3. Install dependencies
+pnpm install
+
+# 4. Run contract tests
+pnpm test:contract
+```
+
+**Features:**
+
+- ✅ **Test Proxy**: Local HTTP proxy resolves CORS and injects authentication
+- ✅ **Test Isolation**: Unique element names prevent collisions (timestamp + random)
+- ✅ **Auto Cleanup**: Test elements automatically removed after tests
+- ✅ **Parallel Safe**: Multiple developers can run tests simultaneously
+- ✅ **Zero Production Impact**: All test code isolated in `tests/` directory
+
+**Commands:**
+
+```bash
+# Run contract tests
+pnpm test:contract
+
+# Watch mode
+pnpm test:contract:watch
+
+# Start test proxy manually (for debugging)
+pnpm test:proxy
+
+# Run all tests
+pnpm test:all
+```
+
+**Documentation:**
+
+- [tests/README.md](tests/README.md) - Complete testing guide
+- [tests/QUICKSTART.md](tests/QUICKSTART.md) - 5-minute setup guide
+- `.env.test.example` - Configuration template
 
 ## License
 

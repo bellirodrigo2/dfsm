@@ -8,8 +8,13 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:unit": "vitest run",
     "test:ui": "vitest --ui",
-    "test:coverage": "vitest --coverage"
+    "test:coverage": "vitest --coverage",
+    "test:contract": "vitest run --config vitest.contract.config.ts",
+    "test:contract:watch": "vitest --config vitest.contract.config.ts",
+    "test:proxy": "tsx tests/proxy/server.ts",
+    "test:all": "pnpm test:unit && pnpm test:contract"
   },
   "dependencies": {
     "vue": "^3.5.25",
@@ -30,6 +35,8 @@
     "vite": "^7.3.1",
     "vue-tsc": "^3.1.5",
     "vitest": "^3.2.0",
-    "jsdom": "^26.1.0"
+    "jsdom": "^26.1.0",
+    "dotenv": "^16.4.7",
+    "tsx": "^4.19.2"
   }
 }

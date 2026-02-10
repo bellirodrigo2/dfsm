@@ -1294,52 +1294,214 @@ Requirements:
 
 ---
 
-## 22. Future Extensions
+## 22. Testing Strategy (v1.9)
+
+### 22.1 Overview
+
+DSM employs a multi-layered testing strategy to ensure reliability and correctness at different levels of integration.
+
+---
+
+### 22.2 Test Layers
+
+#### 22.2.1 Unit Tests
+
+* **Purpose**: Test individual functions, components, and domain logic in isolation
+* **Environment**: Vitest with jsdom
+* **Dependencies**: Uses mocks from `src/tests/mocks/`
+* **Speed**: Fast (< 1 second per test suite)
+* **When to run**: On every code change, pre-commit, CI pipeline
+
+Characteristics:
+
+* No external dependencies (no PI Web API)
+* Pure domain logic testing
+* Component behavior testing
+* Mock-based service testing
+
+#### 22.2.2 Contract Tests
+
+* **Purpose**: Validate PI Web API integration against real server
+* **Environment**: Vitest with Node.js + Test Proxy
+* **Dependencies**: Real PI Web API server (dev/staging)
+* **Speed**: Slower (API round-trips)
+* **When to run**: Before merging, nightly builds, on-demand
+
+Characteristics:
+
+* Tests against real PI Web API
+* Validates API contracts and responses
+* Ensures schema compatibility
+* Catches breaking changes in PI Web API
+
+---
+
+### 22.3 Contract Test Infrastructure
+
+#### 22.3.1 Test Proxy Architecture
+
+Contract tests use a local HTTP proxy server to solve authentication and CORS challenges:
+
+```text
+┌──────────────────┐
+│  Contract Tests  │  (Node.js + Vitest)
+└────────┬─────────┘
+         │
+         ↓
+┌──────────────────┐
+│   Test Proxy     │  (localhost:3001)
+│                  │  - Adds CORS headers
+│                  │  - Injects authentication
+└────────┬─────────┘
+         │
+         ↓
+┌──────────────────┐
+│   PI Web API     │  (Real server)
+│  (Dev/Staging)   │
+└──────────────────┘
+```
+
+Benefits:
+
+* Solves CORS issues without modifying production code
+* Centralizes authentication injection
+* Enables request/response logging for debugging
+* No browser security restrictions
+
+#### 22.3.2 Test Environment Isolation
+
+All contract tests execute against a dedicated AF environment:
+
+* **Dedicated AF Database**: Separate from production (e.g., `DSM_TEST_DB`)
+* **Test Root Element**: All test elements created under a known root
+* **Isolated Credentials**: Test user credentials stored in `.env.test` (gitignored)
+
+Configuration via environment variables:
+
+```bash
+TEST_AF_SERVER=AFSERVER-DEV
+TEST_AF_DATABASE=DSM_TEST_DB
+TEST_AF_ROOT_WEBID=F1AbCDeFgHiJkLmNoPqR...
+```
+
+#### 22.3.3 Test Naming Convention
+
+To prevent collisions and enable parallel execution, all test elements use unique names:
+
+**Format**: `TEST_T<timestamp>_<type>_<name>_<random>`
+
+**Example**: `TEST_T1KJH8A_DF_PRODUCTION_METRICS_X7B2`
+
+Components:
+
+* `TEST_`: Identifier prefix for easy recognition
+* `T<timestamp>`: Base36-encoded timestamp for age tracking
+* `<type>`: Element type (DF, COL, USER, etc.)
+* `<name>`: Original logical name
+* `<random>`: Random suffix for uniqueness
+
+Benefits:
+
+* **Collision-free**: Timestamp + random ensures uniqueness
+* **Parallel-safe**: Multiple test runs can coexist
+* **Age-trackable**: Timestamp enables cleanup of old elements
+* **Identifiable**: Easy to spot test elements in AF
+
+#### 22.3.4 Automatic Cleanup
+
+Test elements are automatically cleaned up through multiple strategies:
+
+1. **Per-Test Cleanup**: Elements created in a test are deleted after that test
+2. **Pre-Run Cleanup**: Old test elements (>24h) are removed before test execution
+3. **Post-Suite Cleanup**: Final cleanup of any remaining elements
+
+Cleanup configuration (`.env.test`):
+
+```bash
+TEST_CLEANUP=true              # Enable cleanup
+TEST_CLEANUP_HOURS=24          # Delete elements older than 24h
+```
+
+Cleanup tracking:
+
+* Each created element is registered via `trackCreatedElement(webId)`
+* Cleanup utilities maintain a registry of created elements
+* Deletion occurs in reverse order (children before parents)
+
+---
+
+### 22.4 Test Directory Structure
+
+```text
+tests/
+├── config/
+│   └── test-env.ts            # Test environment configuration
+├── utils/
+│   ├── test-naming.ts         # Unique name generation
+│   └── test-cleanup.ts        # Cleanup utilities
+├── proxy/
+│   ├── server.ts              # HTTP proxy server
+│   └── config.ts              # Proxy configuration
+└── contract/
+    ├── setup.ts               # Global setup/teardown
+    ├── userinfo.test.ts       # UserInfo API tests
+    ├── dataframes.test.ts     # DataFrame API tests
+    ├── columns.test.ts        # Column API tests
+    └── tags.test.ts           # Tag search API tests
+```
+
+---
+
+### 22.5 Security Considerations
+
+* Test credentials stored in `.env.test` (gitignored)
+* `.env.test.example` template committed (no secrets)
+* Test environment completely isolated from production
+* Proxy runs locally only (not exposed to network)
+* Test database has restricted permissions
+
+---
+
+### 22.6 CI/CD Integration
+
+Contract tests can be integrated into CI/CD pipelines:
+
+Requirements:
+
+* CI environment must have network access to test PI Web API
+* Test credentials configured as CI secrets
+* Dedicated AF test database available
+* Test root element pre-created
+
+CI configuration example:
+
+```yaml
+test:
+  script:
+    - pnpm install
+    - pnpm test:unit
+    - pnpm test:contract
+  variables:
+    TEST_PIWEBAPI_URL: $CI_TEST_PIWEBAPI_URL
+    TEST_PIWEBAPI_USERNAME: $CI_TEST_USERNAME
+    TEST_PIWEBAPI_PASSWORD: $CI_TEST_PASSWORD
+```
+
+---
+
+### 22.7 Test Coverage Goals
+
+* **Unit Tests**: > 80% code coverage for domain and service layers
+* **Contract Tests**: 100% coverage of PI Web API wrapper functions
+* **Integration Tests** (future): Key user flows end-to-end
+
+---
+
+## 23. Future Extensions
 
 * Data extraction engine
-
 * Arrow-based analytics
-
 * Dashboarding
-
 * Metadata versioning
-
 * Advanced sharing and permissions
-
-* Data lake integrations
-
-* Data extraction engine
-
-* Arrow-based analytics
-
-* Dashboarding
-
-* Metadata versioning
-
-* Advanced sharing and permissions
-
-* Data lake integrations
-
-* Data extraction engine
-
-* Arrow-based analytics
-
-* Dashboarding
-
-* Metadata versioning
-
-* Advanced sharing and permissions
-
-* Data lake integrations
-
-* Data extraction engine
-
-* Arrow-based analytics
-
-* Dashboarding
-
-* Metadata versioning
-
-* Advanced sharing and permissions
-
 * Data lake integrations

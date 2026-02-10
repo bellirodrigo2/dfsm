@@ -16,12 +16,12 @@
     "root": {
       "strategy": "webId",
       "primary": {
-        "elementWebId": "F1AbCDeFgHiJkLmNoPqR"
+        "elementWebId": "ROOT-ELEMENT-WEBID"
       },
       "fallback": {
-        "afServerName": "AFSERVER01",
-        "databaseName": "DSM_DB",
-        "elementPath": "\\DSM_ROOT"
+        "afServerName": "SERVERNAME",
+        "databaseName": "DBNAME",
+        "elementPath": "\\ROOTELEMENTNAME"
       }
     },
     "naming": {
