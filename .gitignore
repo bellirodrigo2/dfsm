@@ -31,3 +31,5 @@ public/config/dsm.config.json
 # Test coverage
 coverage
 .nyc_output
+
+pylab/

@@ -13,7 +13,6 @@ export interface Column {
   name: string
   valueSourceType: ValueSourceType
   valueSource?: string    // Tag name, literal value, or expression
-  engineeringUnit?: string
   valueType?: string      // Inferred from source (read-only)
   metadata: ColumnMetadata
   order: number           // Position in the DataFrame
@@ -23,7 +22,6 @@ export interface CreateColumnInput {
   name: string
   valueSourceType: ValueSourceType
   valueSource?: string
-  engineeringUnit?: string
   metadata?: ColumnMetadata
 }
 
@@ -31,7 +29,6 @@ export interface UpdateColumnInput {
   name?: string
   valueSourceType?: ValueSourceType
   valueSource?: string
-  engineeringUnit?: string
   metadata?: ColumnMetadata
 }
 

@@ -69,6 +69,7 @@ async function findUserElement(
 
 /**
  * Create a new user element
+ * Uses batch requests to create element and attribute atomically
  *
  * @param rootWebId - Root element WebId
  * @param normalizedName - Normalized username
@@ -84,26 +85,7 @@ async function createUserElement(
 ): Promise<string> {
   const config = getConfig()
 
-  // Create the user element
-  const elementPayload = {
-    Name: normalizedName,
-    Description: `User element for ${userInfo.name}`,
-  }
-
-  await piWebApiRequest(`elements/${rootWebId}/elements`, {
-    ...options,
-    method: 'POST',
-    json: elementPayload,
-  })
-
-  // Find the created element
-  const createdElement = await findUserElement(rootWebId, normalizedName, options)
-
-  if (!createdElement) {
-    throw new Error(`Failed to find created user element: ${normalizedName}`)
-  }
-
-  // Store user metadata (SID and creation timestamp)
+  // Prepare user metadata
   const userMetadata = {
     sid: userInfo.sid,
     identityType: userInfo.identityType,
@@ -111,18 +93,63 @@ async function createUserElement(
     createdAt: new Date().toISOString(),
   }
 
-  // Create metadata attribute
-  await piWebApiRequest(`elements/${createdElement.WebId}/attributes`, {
+  // Use batch request to create element and attribute atomically
+  // Batch requests require full URLs in the first request
+  // Reference: https://community.aveva.com/pi-square-community/b/aveva-blog/posts/pi-web-api-2015-r3-new-features-demo-batch-and-channels-c
+  const batchPayload = {
+    '1': {
+      Method: 'POST',
+      Resource: `${config.piWebApi.baseUrl}/elements/${rootWebId}/elements`,
+      Content: JSON.stringify({
+        Name: normalizedName,
+        Description: `User element for ${userInfo.name}`,
+      }),
+    },
+    '2': {
+      Method: 'POST',
+      Resource: '{0}/attributes',
+      Parameters: ['$.1.Headers.Location'],
+      ParentIds: ['1'],
+      Content: JSON.stringify({
+        Name: config.af.reservedAttributes.metadataJson,
+        Type: 'String',
+        // Value cannot be set on creation
+      }),
+    },
+    '3': {
+      Method: 'PUT',
+      Resource: '{0}/value',
+      Parameters: ['$.2.Headers.Location'],
+      ParentIds: ['2'],
+      Content: JSON.stringify({
+        Value: JSON.stringify(userMetadata),
+      }),
+    },
+    '4': {
+      Method: 'GET',
+      Resource: '{0}',
+      Parameters: ['$.1.Headers.Location'],
+      ParentIds: ['3'],
+    },
+  }
+
+  const batchResponse = await piWebApiRequest<Record<string, any>>('batch', {
     ...options,
     method: 'POST',
-    json: {
-      Name: config.af.reservedAttributes.metadataJson,
-      Type: 'String',
-      Value: JSON.stringify(userMetadata),
-    },
+    json: batchPayload,
   })
 
-  return createdElement.WebId
+  // Extract WebId from the response
+  const getElementResponse = batchResponse['4']
+
+  if (!getElementResponse || getElementResponse.Status !== 200) {
+    throw new Error(
+      `Failed to create user element: ${normalizedName}. ` +
+        `Batch response: ${JSON.stringify(batchResponse)}`
+    )
+  }
+
+  return getElementResponse.Content.WebId
 }
 
 /**

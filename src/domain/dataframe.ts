@@ -62,11 +62,3 @@ export function validateDataFrameName(name: string): { valid: boolean; error?: s
 
   return { valid: true }
 }
-
-/**
- * Validate metadata key
- * Reserved keys start and end with underscore
- */
-export function isReservedMetadataKey(key: string): boolean {
-  return key.startsWith('_') && key.endsWith('_')
-}

@@ -27,6 +27,7 @@ const showCreateDialog = ref(false)
 const newDfName = ref('')
 const newDfDescription = ref('')
 const newDfPermission = ref<PermissionMode>('PRIVATE')
+const newDfMetadata = ref<Array<{ key: string; value: string }>>([])
 const createError = ref<string | null>(null)
 
 const permissionOptions = [
@@ -44,8 +45,17 @@ function openCreateDialog() {
   newDfName.value = ''
   newDfDescription.value = ''
   newDfPermission.value = 'PRIVATE'
+  newDfMetadata.value = []
   createError.value = null
   showCreateDialog.value = true
+}
+
+function addMetadataRow() {
+  newDfMetadata.value.push({ key: '', value: '' })
+}
+
+function removeMetadataRow(index: number) {
+  newDfMetadata.value.splice(index, 1)
 }
 
 async function handleCreate() {
@@ -56,11 +66,30 @@ async function handleCreate() {
     return
   }
 
+  // Validate metadata keys are unique and non-empty
+  const metadataKeys = newDfMetadata.value.map(m => m.key.trim()).filter(k => k !== '')
+  const uniqueKeys = new Set(metadataKeys)
+  if (metadataKeys.length !== uniqueKeys.size) {
+    createError.value = 'Metadata keys must be unique'
+    return
+  }
+
+  // Convert metadata array to object
+  const metadata: Record<string, string> = {}
+  for (const item of newDfMetadata.value) {
+    const key = item.key.trim()
+    const value = item.value.trim()
+    if (key) {
+      metadata[key] = value
+    }
+  }
+
   try {
     await createMutation.mutateAsync({
       name: newDfName.value.trim(),
       description: newDfDescription.value.trim() || undefined,
       permissions: newDfPermission.value,
+      metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
     })
     showCreateDialog.value = false
   } catch (err) {
@@ -210,6 +239,45 @@ function getPermissionLabel(mode: PermissionMode): string {
             class="w-full"
           />
         </div>
+
+        <div class="field">
+          <div class="metadata-header">
+            <label>Metadata</label>
+            <Button
+              label="Add"
+              icon="pi pi-plus"
+              size="small"
+              text
+              @click="addMetadataRow"
+            />
+          </div>
+          <div v-if="newDfMetadata.length > 0" class="metadata-list">
+            <div
+              v-for="(item, index) in newDfMetadata"
+              :key="index"
+              class="metadata-row"
+            >
+              <InputText
+                v-model="item.key"
+                placeholder="Key"
+                class="metadata-key"
+              />
+              <InputText
+                v-model="item.value"
+                placeholder="Value"
+                class="metadata-value"
+              />
+              <Button
+                icon="pi pi-times"
+                severity="danger"
+                size="small"
+                text
+                @click="removeMetadataRow(index)"
+              />
+            </div>
+          </div>
+          <p v-else class="metadata-hint">Add custom metadata as key-value pairs</p>
+        </div>
       </div>
 
       <template #footer>
@@ -322,5 +390,44 @@ function getPermissionLabel(mode: PermissionMode): string {
   color: var(--p-red-500);
   font-size: 0.875rem;
   margin-top: 0.5rem;
+}
+
+.metadata-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.metadata-header label {
+  font-weight: 500;
+}
+
+.metadata-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metadata-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.metadata-key {
+  flex: 1;
+  min-width: 0;
+}
+
+.metadata-value {
+  flex: 2;
+  min-width: 0;
+}
+
+.metadata-hint {
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+  margin: 0;
 }
 </style>

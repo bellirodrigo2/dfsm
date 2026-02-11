@@ -220,7 +220,6 @@ export async function mockCreateColumn(
     name: input.name,
     valueSourceType: input.valueSourceType,
     valueSource: input.valueSource,
-    engineeringUnit: input.engineeringUnit,
     metadata: input.metadata ?? {},
     order: columns.length,
   }

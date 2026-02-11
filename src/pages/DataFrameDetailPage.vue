@@ -2,8 +2,8 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDataFrame } from '../queries/dataframes'
-import { useDataFrameColumns, useCreateColumn, useDeleteColumn } from '../queries/columns'
-import type { ValueSourceType, CreateColumnInput } from '../domain/column'
+import { useDataFrameColumns, useCreateColumn, useUpdateColumn, useDeleteColumn } from '../queries/columns'
+import type { ValueSourceType, CreateColumnInput, UpdateColumnInput, Column as ColumnType } from '../domain/column'
 import { getValueSourceTypeLabel } from '../domain/column'
 import Button from 'primevue/button'
 import TabView from 'primevue/tabview'
@@ -29,6 +29,7 @@ const tagSearchStore = useTagSearchStore()
 const { data: dataframe, isLoading: dfLoading, error: dfError } = useDataFrame(props.id)
 const { data: columns, isLoading: colsLoading, error: colsError } = useDataFrameColumns(props.id)
 const createColumnMutation = useCreateColumn(props.id)
+const updateColumnMutation = useUpdateColumn(props.id)
 const deleteColumnMutation = useDeleteColumn(props.id)
 
 // Breadcrumb
@@ -43,8 +44,17 @@ const showCreateColumnDialog = ref(false)
 const newColName = ref('')
 const newColSourceType = ref<ValueSourceType>('PiTag')
 const newColSource = ref('')
-const newColUnit = ref('')
+const newColMetadata = ref<Array<{ key: string; value: string }>>([])
 const createColError = ref<string | null>(null)
+
+// Edit column dialog
+const showEditColumnDialog = ref(false)
+const editColId = ref('')
+const editColName = ref('')
+const editColSourceType = ref<ValueSourceType>('PiTag')
+const editColSource = ref('')
+const editColMetadata = ref<Array<{ key: string; value: string }>>([])
+const editColError = ref<string | null>(null)
 
 const sourceTypeOptions = [
   { label: 'PI Tag', value: 'PiTag' },
@@ -60,9 +70,17 @@ function openCreateColumnDialog() {
   newColName.value = ''
   newColSourceType.value = 'PiTag'
   newColSource.value = ''
-  newColUnit.value = ''
+  newColMetadata.value = []
   createColError.value = null
   showCreateColumnDialog.value = true
+}
+
+function addCreateMetadataRow() {
+  newColMetadata.value.push({ key: '', value: '' })
+}
+
+function removeCreateMetadataRow(index: number) {
+  newColMetadata.value.splice(index, 1)
 }
 
 async function handleCreateColumn() {
@@ -73,11 +91,29 @@ async function handleCreateColumn() {
     return
   }
 
+  // Validate metadata keys are unique and non-empty
+  const metadataKeys = newColMetadata.value.map(m => m.key.trim()).filter(k => k !== '')
+  const uniqueKeys = new Set(metadataKeys)
+  if (metadataKeys.length !== uniqueKeys.size) {
+    createColError.value = 'Metadata keys must be unique'
+    return
+  }
+
+  // Convert metadata array to object
+  const metadata: Record<string, string> = {}
+  for (const item of newColMetadata.value) {
+    const key = item.key.trim()
+    const value = item.value.trim()
+    if (key) {
+      metadata[key] = value
+    }
+  }
+
   const input: CreateColumnInput = {
     name: newColName.value.trim(),
     valueSourceType: newColSourceType.value,
     valueSource: newColSource.value.trim() || undefined,
-    engineeringUnit: newColUnit.value.trim() || undefined,
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
   }
 
   try {
@@ -85,6 +121,71 @@ async function handleCreateColumn() {
     showCreateColumnDialog.value = false
   } catch (err) {
     createColError.value = err instanceof Error ? err.message : 'Failed to create column'
+  }
+}
+
+function openEditColumnDialog(column: ColumnType) {
+  editColId.value = column.id
+  editColName.value = column.name
+  editColSourceType.value = column.valueSourceType
+  editColSource.value = column.valueSource || ''
+
+  // Convert metadata object to array
+  editColMetadata.value = Object.entries(column.metadata || {}).map(([key, value]) => ({
+    key,
+    value: String(value),
+  }))
+
+  editColError.value = null
+  showEditColumnDialog.value = true
+}
+
+function addEditMetadataRow() {
+  editColMetadata.value.push({ key: '', value: '' })
+}
+
+function removeEditMetadataRow(index: number) {
+  editColMetadata.value.splice(index, 1)
+}
+
+async function handleEditColumn() {
+  editColError.value = null
+
+  if (!editColName.value.trim()) {
+    editColError.value = 'Name is required'
+    return
+  }
+
+  // Validate metadata keys are unique and non-empty
+  const metadataKeys = editColMetadata.value.map(m => m.key.trim()).filter(k => k !== '')
+  const uniqueKeys = new Set(metadataKeys)
+  if (metadataKeys.length !== uniqueKeys.size) {
+    editColError.value = 'Metadata keys must be unique'
+    return
+  }
+
+  // Convert metadata array to object
+  const metadata: Record<string, string> = {}
+  for (const item of editColMetadata.value) {
+    const key = item.key.trim()
+    const value = item.value.trim()
+    if (key) {
+      metadata[key] = value
+    }
+  }
+
+  const input: UpdateColumnInput = {
+    name: editColName.value.trim(),
+    valueSourceType: editColSourceType.value,
+    valueSource: editColSource.value.trim() || undefined,
+    metadata,
+  }
+
+  try {
+    await updateColumnMutation.mutateAsync({ id: editColId.value, input })
+    showEditColumnDialog.value = false
+  } catch (err) {
+    editColError.value = err instanceof Error ? err.message : 'Failed to update column'
   }
 }
 
@@ -113,13 +214,19 @@ function openTagSearch() {
   tagSearchStore.open({
     onSelect: (tag) => {
       newColSource.value = tag.path
-      if (tag.engineeringUnit) {
-        newColUnit.value = tag.engineeringUnit
-      }
       // Auto-fill column name if empty
       if (!newColName.value.trim()) {
         newColName.value = tag.name
       }
+    },
+    placeholder: 'Search for a PI tag...',
+  })
+}
+
+function openEditTagSearch() {
+  tagSearchStore.open({
+    onSelect: (tag) => {
+      editColSource.value = tag.path
     },
     placeholder: 'Search for a PI tag...',
   })
@@ -186,7 +293,6 @@ function openTagSearch() {
               </template>
             </Column>
             <Column field="valueSource" header="Source" />
-            <Column field="engineeringUnit" header="Unit" />
             <Column header="Actions" style="width: 120px">
               <template #body="{ data }">
                 <div class="action-buttons">
@@ -196,6 +302,7 @@ function openTagSearch() {
                     size="small"
                     text
                     aria-label="Edit"
+                    @click="openEditColumnDialog(data)"
                   />
                   <Button
                     icon="pi pi-trash"
@@ -311,13 +418,42 @@ function openTagSearch() {
         </div>
 
         <div class="field">
-          <label for="col-unit">Engineering Unit</label>
-          <InputText
-            id="col-unit"
-            v-model="newColUnit"
-            class="w-full"
-            placeholder="e.g., deg C, bar, m/s"
-          />
+          <div class="metadata-header">
+            <label>Metadata</label>
+            <Button
+              label="Add"
+              icon="pi pi-plus"
+              size="small"
+              text
+              @click="addCreateMetadataRow"
+            />
+          </div>
+          <div v-if="newColMetadata.length > 0" class="metadata-list">
+            <div
+              v-for="(item, index) in newColMetadata"
+              :key="index"
+              class="metadata-row"
+            >
+              <InputText
+                v-model="item.key"
+                placeholder="Key"
+                class="metadata-key"
+              />
+              <InputText
+                v-model="item.value"
+                placeholder="Value"
+                class="metadata-value"
+              />
+              <Button
+                icon="pi pi-times"
+                severity="danger"
+                size="small"
+                text
+                @click="removeCreateMetadataRow(index)"
+              />
+            </div>
+          </div>
+          <p v-else class="metadata-hint">Add custom metadata as key-value pairs</p>
         </div>
       </div>
 
@@ -332,6 +468,130 @@ function openTagSearch() {
           icon="pi pi-check"
           :loading="createColumnMutation.isPending.value"
           @click="handleCreateColumn"
+        />
+      </template>
+    </Dialog>
+
+    <!-- Edit Column Dialog -->
+    <Dialog
+      v-model:visible="showEditColumnDialog"
+      header="Edit Column"
+      modal
+      :style="{ width: '500px' }"
+    >
+      <div class="dialog-form">
+        <Message v-if="editColError" severity="error" :closable="false">
+          {{ editColError }}
+        </Message>
+
+        <div class="field">
+          <label for="edit-col-name">Name *</label>
+          <InputText
+            id="edit-col-name"
+            v-model="editColName"
+            class="w-full"
+            placeholder="e.g., temperature"
+          />
+        </div>
+
+        <div class="field">
+          <label for="edit-col-source-type">Source Type *</label>
+          <Select
+            id="edit-col-source-type"
+            v-model="editColSourceType"
+            :options="sourceTypeOptions"
+            optionLabel="label"
+            optionValue="value"
+            class="w-full"
+          />
+        </div>
+
+        <div class="field">
+          <label for="edit-col-source">
+            {{ editColSourceType === 'PiTag' ? 'Tag Path' : editColSourceType === 'Formula' ? 'Expression' : 'Value' }}
+          </label>
+          <Textarea
+            v-if="editColSourceType === 'Formula'"
+            id="edit-col-source"
+            v-model="editColSource"
+            class="w-full"
+            rows="3"
+            placeholder="e.g., 'tag1' + 'tag2'"
+          />
+          <div v-else-if="editColSourceType === 'PiTag'" class="input-with-button">
+            <InputText
+              id="edit-col-source"
+              v-model="editColSource"
+              class="flex-1"
+              placeholder="\\\\SERVER\\TAG"
+            />
+            <Button
+              icon="pi pi-search"
+              severity="secondary"
+              aria-label="Search tags"
+              @click="openEditTagSearch"
+            />
+          </div>
+          <InputText
+            v-else
+            id="edit-col-source"
+            v-model="editColSource"
+            class="w-full"
+            placeholder="42"
+          />
+        </div>
+
+        <div class="field">
+          <div class="metadata-header">
+            <label>Metadata</label>
+            <Button
+              label="Add"
+              icon="pi pi-plus"
+              size="small"
+              text
+              @click="addEditMetadataRow"
+            />
+          </div>
+          <div v-if="editColMetadata.length > 0" class="metadata-list">
+            <div
+              v-for="(item, index) in editColMetadata"
+              :key="index"
+              class="metadata-row"
+            >
+              <InputText
+                v-model="item.key"
+                placeholder="Key"
+                class="metadata-key"
+              />
+              <InputText
+                v-model="item.value"
+                placeholder="Value"
+                class="metadata-value"
+              />
+              <Button
+                icon="pi pi-times"
+                severity="danger"
+                size="small"
+                text
+                @click="removeEditMetadataRow(index)"
+              />
+            </div>
+          </div>
+          <p v-else class="metadata-hint">Add custom metadata as key-value pairs</p>
+        </div>
+      </div>
+
+      <template #footer>
+        <Button
+          label="Cancel"
+          severity="secondary"
+          @click="showEditColumnDialog = false"
+        />
+        <Button
+          label="Save"
+          icon="pi pi-check"
+          :loading="updateColumnMutation.isPending.value"
+          @click="handleEditColumn"
         />
       </template>
     </Dialog>
@@ -479,5 +739,44 @@ function openTagSearch() {
 
 .flex-1 {
   flex: 1;
+}
+
+.metadata-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.metadata-header label {
+  font-weight: 500;
+}
+
+.metadata-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.metadata-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.metadata-key {
+  flex: 1;
+  min-width: 0;
+}
+
+.metadata-value {
+  flex: 2;
+  min-width: 0;
+}
+
+.metadata-hint {
+  font-size: 0.875rem;
+  color: var(--p-text-muted-color);
+  margin: 0;
 }
 </style>

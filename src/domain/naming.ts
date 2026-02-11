@@ -106,7 +106,7 @@ export function validateAfElementName(name: string): { valid: boolean; error?: s
 export function parseWindowsIdentity(identity: string): { domain: string; username: string } {
   const parts = identity.split('\\')
 
-  if (parts.length === 2) {
+  if (parts.length === 2 && parts[0] && parts[1]) {
     return {
       domain: parts[0].trim(),
       username: parts[1].trim(),

@@ -1,0 +1,19 @@
+edit nao funciona em df
+
+se nao adicionar metadados em df, criar o attributo vazio
+
+mudar nome de dsm__config de column para dsm__metadata, conforme df
+
+adicionar engunit e typequalifier como dropbox no UI de criacao de coluna (listar do PI)
+adiiconar metadados as colunas
+
+tag search
+
+criar metadados para o usuario, com um attributo dentro do elemento dele
+
+fazer opcao de criar df's a patir de dados csv, yaml
+
+extrair dados em arrow: browser ou folder do server
+
+fazer opcao de login em outro computador (trocar usuario)
+salvar nome do usuario, senha hashed, com enum de tipo de hash usado

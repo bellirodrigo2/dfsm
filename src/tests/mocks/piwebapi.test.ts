@@ -151,13 +151,11 @@ describe('mock', () => {
         name: 'temperature',
         valueSourceType: 'PiTag',
         valueSource: '\\\\SERVER\\TAG',
-        engineeringUnit: 'deg C',
       })
 
       expect(col.name).toBe('temperature')
       expect(col.valueSourceType).toBe('PiTag')
       expect(col.valueSource).toBe('\\\\SERVER\\TAG')
-      expect(col.engineeringUnit).toBe('deg C')
       expect(col.order).toBe(0)
     })
 

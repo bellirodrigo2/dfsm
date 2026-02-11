@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateDataFrameName, isReservedMetadataKey } from './dataframe'
+import { validateDataFrameName } from './dataframe'
 
 describe('validateDataFrameName', () => {
   it('accepts valid name', () => {
@@ -47,20 +47,5 @@ describe('validateDataFrameName', () => {
   it('rejects name with brackets', () => {
     expect(validateDataFrameName('test[1]').valid).toBe(false)
     expect(validateDataFrameName('test{1}').valid).toBe(false)
-  })
-})
-
-describe('isReservedMetadataKey', () => {
-  it('returns true for reserved keys', () => {
-    expect(isReservedMetadataKey('_DESCRIPTION_')).toBe(true)
-    expect(isReservedMetadataKey('_ROLE_')).toBe(true)
-    expect(isReservedMetadataKey('_X_')).toBe(true)
-  })
-
-  it('returns false for regular keys', () => {
-    expect(isReservedMetadataKey('description')).toBe(false)
-    expect(isReservedMetadataKey('_prefix')).toBe(false)
-    expect(isReservedMetadataKey('suffix_')).toBe(false)
-    expect(isReservedMetadataKey('normal_key')).toBe(false)
   })
 })
