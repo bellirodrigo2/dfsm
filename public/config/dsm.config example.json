@@ -52,5 +52,23 @@
       "enabled": false,
       "defaultTimeZone": "America/New_York"
     }
+  },
+  "export": {
+    "defaultFormat": "xlsx",
+    "csv": {
+      "separator": ";",
+      "delimiter": "\"",
+      "decimalSeparator": ",",
+      "dateFormat": "DD/MM/YYYY HH:mm:ss",
+      "includeHeaders": true,
+      "encoding": "utf-8-sig",
+      "nullRepresentation": ""
+    },
+    "xlsx": {
+      "decimalSeparator": ",",
+      "dateFormat": "dd/mm/yyyy hh:mm:ss",
+      "sheetName": "Data",
+      "nullRepresentation": ""
+    }
   }
 }

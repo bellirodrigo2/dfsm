@@ -17,26 +17,28 @@
     "test:all": "pnpm test:unit && pnpm test:contract"
   },
   "dependencies": {
+    "@primeuix/themes": "^1.0.0",
+    "@tanstack/vue-query": "^5.75.0",
+    "apache-arrow": "^21.1.0",
+    "ky": "^1.8.0",
+    "pinia": "^3.0.0",
+    "primeicons": "^7.0.0",
+    "primevue": "^4.3.0",
     "vue": "^3.5.25",
     "vue-router": "^4.5.0",
-    "pinia": "^3.0.0",
-    "@tanstack/vue-query": "^5.75.0",
-    "ky": "^1.8.0",
-    "@primeuix/themes": "^1.0.0",
-    "primevue": "^4.3.0",
-    "primeicons": "^7.0.0"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^6.0.2",
-    "@vue/tsconfig": "^0.8.1",
     "@vue/test-utils": "^2.4.6",
+    "@vue/tsconfig": "^0.8.1",
+    "dotenv": "^16.4.7",
+    "jsdom": "^26.1.0",
+    "tsx": "^4.19.2",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
-    "vue-tsc": "^3.1.5",
     "vitest": "^3.2.0",
-    "jsdom": "^26.1.0",
-    "dotenv": "^16.4.7",
-    "tsx": "^4.19.2"
+    "vue-tsc": "^3.1.5"
   }
 }

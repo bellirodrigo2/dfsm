@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { useMyDataFrames, useCreateDataFrame, useDeleteDataFrame } from '../queries/dataframes'
+import { useMyDataFrames, useCreateDataFrame, useUpdateDataFrame, useDeleteDataFrame } from '../queries/dataframes'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
@@ -16,6 +16,7 @@ import type { PermissionMode } from '../domain/dataframe'
 const router = useRouter()
 const { data: dataframes, isLoading, error } = useMyDataFrames()
 const createMutation = useCreateDataFrame()
+const updateMutation = useUpdateDataFrame()
 const deleteMutation = useDeleteDataFrame()
 
 function openDataFrame(id: string) {
@@ -35,6 +36,15 @@ const permissionOptions = [
   { label: 'Public', value: 'PUBLIC' },
   { label: 'Shared', value: 'SHARED' },
 ]
+
+// Edit dialog state
+const showEditDialog = ref(false)
+const editDfId = ref<string | null>(null)
+const editDfName = ref('')
+const editDfDescription = ref('')
+const editDfPermission = ref<PermissionMode>('PRIVATE')
+const editDfMetadata = ref<Array<{ key: string; value: string }>>([])
+const editError = ref<string | null>(null)
 
 // Delete confirmation state
 const showDeleteDialog = ref(false)
@@ -94,6 +104,87 @@ async function handleCreate() {
     showCreateDialog.value = false
   } catch (err) {
     createError.value = err instanceof Error ? err.message : 'Failed to create DataFrame'
+  }
+}
+
+function openEditDialog(id: string) {
+  const dataframe = dataframes.value?.find(df => df.id === id)
+  if (!dataframe) return
+
+  editDfId.value = id
+  editDfName.value = dataframe.name
+  editDfDescription.value = dataframe.description || ''
+  editDfPermission.value = dataframe.permissions.mode
+
+  // Convert metadata object to array
+  const metadata = dataframe.metadata || {}
+  editDfMetadata.value = Object.entries(metadata).map(([key, value]) => ({
+    key,
+    value: String(value),
+  }))
+
+  editError.value = null
+  showEditDialog.value = true
+}
+
+function addEditMetadataRow() {
+  editDfMetadata.value.push({ key: '', value: '' })
+}
+
+function removeEditMetadataRow(index: number) {
+  editDfMetadata.value.splice(index, 1)
+}
+
+async function handleEdit() {
+  editError.value = null
+
+  if (!editDfName.value.trim()) {
+    editError.value = 'Name is required'
+    return
+  }
+
+  if (!editDfId.value) return
+
+  // Get current dataframe to preserve ownerSid
+  const currentDataFrame = dataframes.value?.find(df => df.id === editDfId.value)
+  if (!currentDataFrame) return
+
+  // Validate metadata keys are unique and non-empty
+  const metadataKeys = editDfMetadata.value.map(m => m.key.trim()).filter(k => k !== '')
+  const uniqueKeys = new Set(metadataKeys)
+  if (metadataKeys.length !== uniqueKeys.size) {
+    editError.value = 'Metadata keys must be unique'
+    return
+  }
+
+  // Convert metadata array to object
+  const metadata: Record<string, string> = {}
+  for (const item of editDfMetadata.value) {
+    const key = item.key.trim()
+    const value = item.value.trim()
+    if (key) {
+      metadata[key] = value
+    }
+  }
+
+  try {
+    await updateMutation.mutateAsync({
+      id: editDfId.value,
+      input: {
+        name: editDfName.value.trim(),
+        description: editDfDescription.value.trim() || undefined,
+        permissions: {
+          mode: editDfPermission.value,
+          ownerSid: currentDataFrame.permissions.ownerSid,
+          read: currentDataFrame.permissions.read,
+          write: currentDataFrame.permissions.write,
+        },
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+      },
+    })
+    showEditDialog.value = false
+  } catch (err) {
+    editError.value = err instanceof Error ? err.message : 'Failed to update DataFrame'
   }
 }
 
@@ -171,6 +262,7 @@ function getPermissionLabel(mode: PermissionMode): string {
               size="small"
               text
               aria-label="Edit"
+              @click="openEditDialog(data.id)"
             />
             <Button
               icon="pi pi-trash"
@@ -291,6 +383,106 @@ function getPermissionLabel(mode: PermissionMode): string {
           icon="pi pi-check"
           :loading="createMutation.isPending.value"
           @click="handleCreate"
+        />
+      </template>
+    </Dialog>
+
+    <!-- Edit Dialog -->
+    <Dialog
+      v-model:visible="showEditDialog"
+      header="Edit DataFrame"
+      modal
+      :style="{ width: '450px' }"
+    >
+      <div class="dialog-form">
+        <Message v-if="editError" severity="error" :closable="false">
+          {{ editError }}
+        </Message>
+
+        <div class="field">
+          <label for="edit-df-name">Name *</label>
+          <InputText
+            id="edit-df-name"
+            v-model="editDfName"
+            class="w-full"
+            placeholder="e.g., production_metrics"
+          />
+        </div>
+
+        <div class="field">
+          <label for="edit-df-description">Description</label>
+          <Textarea
+            id="edit-df-description"
+            v-model="editDfDescription"
+            class="w-full"
+            rows="3"
+            placeholder="Optional description"
+          />
+        </div>
+
+        <div class="field">
+          <label for="edit-df-permission">Permission</label>
+          <Select
+            id="edit-df-permission"
+            v-model="editDfPermission"
+            :options="permissionOptions"
+            optionLabel="label"
+            optionValue="value"
+            class="w-full"
+          />
+        </div>
+
+        <div class="field">
+          <div class="metadata-header">
+            <label>Metadata</label>
+            <Button
+              label="Add"
+              icon="pi pi-plus"
+              size="small"
+              text
+              @click="addEditMetadataRow"
+            />
+          </div>
+          <div v-if="editDfMetadata.length > 0" class="metadata-list">
+            <div
+              v-for="(item, index) in editDfMetadata"
+              :key="index"
+              class="metadata-row"
+            >
+              <InputText
+                v-model="item.key"
+                placeholder="Key"
+                class="metadata-key"
+              />
+              <InputText
+                v-model="item.value"
+                placeholder="Value"
+                class="metadata-value"
+              />
+              <Button
+                icon="pi pi-times"
+                severity="danger"
+                size="small"
+                text
+                @click="removeEditMetadataRow(index)"
+              />
+            </div>
+          </div>
+          <p v-else class="metadata-hint">Add custom metadata as key-value pairs</p>
+        </div>
+      </div>
+
+      <template #footer>
+        <Button
+          label="Cancel"
+          severity="secondary"
+          @click="showEditDialog = false"
+        />
+        <Button
+          label="Save"
+          icon="pi pi-check"
+          :loading="updateMutation.isPending.value"
+          @click="handleEdit"
         />
       </template>
     </Dialog>

@@ -44,6 +44,12 @@ export interface PiWebApiPoint {
   EngineeringUnits?: string
 }
 
+export interface PiWebApiDataServer {
+  WebId: string
+  Name: string
+  Path: string
+}
+
 export interface PiWebApiItemsResponse<T> {
   Items: T[]
 }

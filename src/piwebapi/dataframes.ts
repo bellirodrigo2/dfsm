@@ -267,24 +267,37 @@ async function fetchDataFrameDetails(
       const metadataElementWebId = elementsResponse.Items[0]!.WebId
 
       // Fetch attributes from metadata element
-      const attributesResponse = await piWebApiRequest<PiWebApiItemsResponse<{ Name: string; Value: unknown }>>(
-        `elements/${metadataElementWebId}/attributes?selectedFields=Items.Name;Items.Value`,
+      const attributesResponse = await piWebApiRequest<PiWebApiItemsResponse<{ WebId: string; Name: string }>>(
+        `elements/${metadataElementWebId}/attributes`,
         options
       )
 
+      // Fetch values for each attribute
       for (const attr of attributesResponse.Items) {
-        if (attr.Name === config.af.reservedAttributes.permissionsJson && typeof attr.Value === 'string') {
+        if (attr.Name === config.af.reservedAttributes.permissionsJson) {
           try {
-            permissions = JSON.parse(attr.Value)
+            const valueResponse = await piWebApiRequest<{ Value: unknown }>(
+              `attributes/${attr.WebId}/value`,
+              options
+            )
+            if (typeof valueResponse.Value === 'string') {
+              permissions = JSON.parse(valueResponse.Value)
+            }
           } catch {
-            // Invalid JSON, use defaults
+            // Ignore errors, use defaults
           }
         }
-        if (attr.Name === config.af.reservedAttributes.metadataJson && typeof attr.Value === 'string') {
+        if (attr.Name === config.af.reservedAttributes.metadataJson) {
           try {
-            metadata = JSON.parse(attr.Value)
+            const valueResponse = await piWebApiRequest<{ Value: unknown }>(
+              `attributes/${attr.WebId}/value`,
+              options
+            )
+            if (typeof valueResponse.Value === 'string') {
+              metadata = JSON.parse(valueResponse.Value)
+            }
           } catch {
-            // Invalid JSON, use defaults
+            // Ignore errors, use defaults
           }
         }
       }

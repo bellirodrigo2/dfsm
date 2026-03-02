@@ -65,9 +65,11 @@ export const useTagSearchStore = defineStore('tagSearch', () => {
     close()
   }
 
-  async function search(searchQuery: string): Promise<void> {
+  async function search(searchQuery: string, append = false): Promise<void> {
     query.value = searchQuery
-    selectedIndex.value = 0
+    if (!append) {
+      selectedIndex.value = 0
+    }
 
     const service = getTagSearchService()
     const config = service.getConfig()
@@ -84,14 +86,23 @@ export const useTagSearchStore = defineStore('tagSearch', () => {
     error.value = null
 
     try {
-      const result = await service.search(searchQuery)
-      results.value = result.tags
+      const currentOffset = append ? results.value.length : 0
+      const result = await service.search(searchQuery, currentOffset)
+      results.value = append ? [...results.value, ...result.tags] : result.tags
       hasMore.value = result.hasMore
       status.value = 'success'
     } catch (err) {
       error.value = err instanceof Error ? err.message : 'Search failed'
       status.value = 'error'
-      results.value = []
+      if (!append) {
+        results.value = []
+      }
+    }
+  }
+
+  function loadMore(): void {
+    if (hasMore.value && !isLoading.value && query.value) {
+      search(query.value, true)
     }
   }
 
@@ -168,6 +179,7 @@ export const useTagSearchStore = defineStore('tagSearch', () => {
     close,
     cancel,
     search,
+    loadMore,
     selectTag,
     selectCurrent,
     selectUp,

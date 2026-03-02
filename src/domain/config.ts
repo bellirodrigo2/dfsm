@@ -71,6 +71,32 @@ export interface ExecutionContextConfig {
   defaultTimeZone: string
 }
 
+export interface CsvExportConfig {
+  separator: string        // Field separator (e.g., "," for US, ";" for Brazil/Europe)
+  delimiter: string         // Text delimiter (e.g., '"')
+  decimalSeparator: string  // Decimal separator (e.g., "." for US, "," for Brazil)
+  dateFormat: string        // Date format (e.g., "YYYY-MM-DD HH:mm:ss" or "DD/MM/YYYY HH:mm:ss")
+  includeHeaders: boolean   // Include column headers
+  encoding: string          // File encoding (e.g., "utf-8", "windows-1252", "utf-8-sig")
+  nullRepresentation: string // How to represent null values (e.g., "", "null", "N/A")
+}
+
+export interface XlsxExportConfig {
+  decimalSeparator: string  // Decimal separator (e.g., "." for US, "," for Brazil)
+  dateFormat: string        // Date format for Excel cells (Excel format codes)
+  sheetName: string         // Default sheet name
+  nullRepresentation: string // How to represent null values
+}
+
+export interface ExportConfig {
+  defaultFormat: 'xlsx' | 'csv' // Default export format
+  csv: CsvExportConfig
+  xlsx: XlsxExportConfig
+  // Future formats can be added here:
+  // parquet?: ParquetExportConfig
+  // json?: JsonExportConfig
+}
+
 export interface FeaturesConfig {
   sharedPermissions: boolean
   tagSearch: TagSearchConfig
@@ -82,4 +108,5 @@ export interface DsmConfig {
   piWebApi: PiWebApiConfig
   af: AfConfig
   features: FeaturesConfig
+  export: ExportConfig
 }

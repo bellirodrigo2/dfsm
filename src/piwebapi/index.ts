@@ -32,4 +32,9 @@ export {
   userElementExists,
   listUserElements,
 } from './userelements'
+export {
+  listDataServers,
+  getDataServer,
+} from './dataservers'
+export type { DataServer } from './dataservers'
 export type { PiWebApiClientOptions } from './client'

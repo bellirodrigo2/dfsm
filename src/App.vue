@@ -3,6 +3,9 @@ import { onMounted, ref } from 'vue'
 import AppShell from './ui/AppShell.vue'
 import { loadConfig, ConfigLoadError } from './app/config'
 import { initializeAuth } from './services/auth'
+import { listDataServers } from './piwebapi'
+import { useDataServersStore } from './stores/dataservers'
+import { initializeExporters } from './utils/export'
 
 const configError = ref<string | null>(null)
 const initialized = ref(false)
@@ -11,6 +14,24 @@ onMounted(async () => {
   try {
     await loadConfig()
     await initializeAuth()
+
+    // Initialize export handlers
+    initializeExporters()
+
+    // Initialize data servers
+    const dataServersStore = useDataServersStore()
+    dataServersStore.setLoading(true)
+    try {
+      const servers = await listDataServers()
+      dataServersStore.setDataServers(servers)
+    } catch (error) {
+      const err = error as Error
+      console.error('Failed to load data servers:', err.message)
+      dataServersStore.setError(`Failed to load data servers: ${err.message}`)
+    } finally {
+      dataServersStore.setLoading(false)
+    }
+
     initialized.value = true
   } catch (error) {
     if (error instanceof ConfigLoadError) {

@@ -227,17 +227,24 @@ async function fetchColumnDetails(
 
   try {
     // Fetch child attributes to find DSM__CONFIG
-    const attributesResponse = await piWebApiRequest<PiWebApiItemsResponse<{ Name: string; Value: unknown }>>(
-      `attributes/${attr.WebId}/attributes?selectedFields=Items.Name;Items.Value`,
+    const attributesResponse = await piWebApiRequest<PiWebApiItemsResponse<{ WebId: string; Name: string }>>(
+      `attributes/${attr.WebId}/attributes`,
       options
     )
 
     for (const childAttr of attributesResponse.Items) {
-      if (childAttr.Name === 'DSM__CONFIG' && typeof childAttr.Value === 'string') {
+      if (childAttr.Name === 'DSM__CONFIG') {
         try {
-          metadata = JSON.parse(childAttr.Value)
+          // Fetch the value separately
+          const valueResponse = await piWebApiRequest<{ Value: unknown }>(
+            `attributes/${childAttr.WebId}/value`,
+            options
+          )
+          if (typeof valueResponse.Value === 'string') {
+            metadata = JSON.parse(valueResponse.Value)
+          }
         } catch {
-          // Invalid JSON
+          // Invalid JSON or error fetching value
         }
         break
       }

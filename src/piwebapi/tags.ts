@@ -2,25 +2,42 @@ import type { Tag, TagSearchResult, TagSearchOptions } from '../domain/tag'
 import type { PiWebApiPoint, PiWebApiItemsResponse } from './types'
 import { piWebApiRequest, type PiWebApiClientOptions } from './client'
 
+
+const MIN_CHAR = 2
+const RESULTS_LIMIT = 50
+
+const QUERY_PREFIX = ''
+const QUERY_SUFIX = '*'
+
 /**
  * Search for PI Points (tags)
  */
 export async function searchTags(
-  options: TagSearchOptions & PiWebApiClientOptions
+  options: TagSearchOptions & PiWebApiClientOptions & { dataServerWebId?: string; offset?: number }
 ): Promise<TagSearchResult> {
-  const { query, limit = 50, signal, ...clientOptions } = options
+  const { query, limit = RESULTS_LIMIT, offset = 0, signal, dataServerWebId, ...clientOptions } = options
 
-  if (!query || query.length < 2) {
+  if (!query || query.length < MIN_CHAR) {
     return { tags: [], hasMore: false }
   }
 
+  if (!dataServerWebId) {
+    throw new Error('dataServerWebId is required for tag search')
+  }
+
   // PI Web API search endpoint for points
-  // Uses nameFilter with wildcard for partial matching
-  const searchQuery = `*${query}*`
+  // Uses query parameter with wildcard for partial matching
+  const searchQuery = `${QUERY_PREFIX}${query}${QUERY_SUFIX}`
   const maxCount = limit + 1 // Request one extra to detect hasMore
 
+  // Build URL with pagination parameters
+  let url = `points/search?query=${encodeURIComponent(searchQuery)}&dataServerWebId=${encodeURIComponent(dataServerWebId)}&maxCount=${maxCount}`
+  if (offset > 0) {
+    url += `&startIndex=${offset}`
+  }
+
   const response = await piWebApiRequest<PiWebApiItemsResponse<PiWebApiPoint>>(
-    `points?nameFilter=${encodeURIComponent(searchQuery)}&maxCount=${maxCount}`,
+    url,
     { ...clientOptions, signal }
   )
 

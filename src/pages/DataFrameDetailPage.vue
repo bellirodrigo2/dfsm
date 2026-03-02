@@ -17,7 +17,10 @@ import Textarea from 'primevue/textarea'
 import Message from 'primevue/message'
 import ProgressSpinner from 'primevue/progressspinner'
 import Breadcrumb from 'primevue/breadcrumb'
+import DatePicker from 'primevue/datepicker'
 import { useTagSearchStore } from '../modules/tagSearch'
+import { extractDataFrameData, type DataExtractionOptions, type DataExtractionResult } from '../piwebapi/data-extraction'
+import { exportTable, type ExportFormat } from '../utils/export'
 
 const props = defineProps<{
   id: string
@@ -231,6 +234,129 @@ function openEditTagSearch() {
     placeholder: 'Search for a PI tag...',
   })
 }
+
+// Data extraction state
+const extractionStartTime = ref<Date | null>(null)
+const extractionEndTime = ref<Date | null>(null)
+const extractionInterval = ref('1h')
+const extractionLoading = ref(false)
+const extractionError = ref<string | null>(null)
+const extractionResult = ref<DataExtractionResult | null>(null)
+
+// Preview table data
+const previewData = computed(() => {
+  if (!extractionResult.value) return null
+
+  const table = extractionResult.value.table
+  const totalRows = table.numRows
+
+  // Get first 10 and last 10 rows
+  const firstN = Math.min(10, totalRows)
+  const lastN = Math.min(10, totalRows)
+
+  const rows: any[] = []
+
+  // Add first 10 rows
+  for (let i = 0; i < firstN; i++) {
+    const row: any = {}
+    for (let col = 0; col < table.numCols; col++) {
+      const field = table.schema.fields[col]!
+      const column = table.getChildAt(col)!
+      row[field.name] = column.get(i)
+    }
+    rows.push(row)
+  }
+
+  // Add separator if we have a gap
+  if (totalRows > 20) {
+    rows.push({ _separator: true })
+  }
+
+  // Add last 10 rows (if different from first 10)
+  if (totalRows > 10) {
+    const startIdx = Math.max(firstN, totalRows - lastN)
+    for (let i = startIdx; i < totalRows; i++) {
+      const row: any = {}
+      for (let col = 0; col < table.numCols; col++) {
+        const field = table.schema.fields[col]!
+        const column = table.getChildAt(col)!
+        row[field.name] = column.get(i)
+      }
+      rows.push(row)
+    }
+  }
+
+  return {
+    rows,
+    columns: table.schema.fields.map(f => f.name),
+  }
+})
+
+async function handleExtractData() {
+  extractionError.value = null
+
+  if (!extractionStartTime.value || !extractionEndTime.value) {
+    extractionError.value = 'Start time and end time are required'
+    return
+  }
+
+  if (!extractionInterval.value.trim()) {
+    extractionError.value = 'Interval is required'
+    return
+  }
+
+  if (!columns.value || columns.value.length === 0) {
+    extractionError.value = 'No columns defined. Add columns first.'
+    return
+  }
+
+  extractionLoading.value = true
+
+  try {
+    const options: DataExtractionOptions = {
+      startTime: extractionStartTime.value.toISOString(),
+      endTime: extractionEndTime.value.toISOString(),
+      interval: extractionInterval.value.trim(),
+    }
+
+    const result = await extractDataFrameData(
+      dataframe.value!,
+      columns.value,
+      options
+    )
+
+    extractionResult.value = result
+  } catch (err) {
+    extractionError.value = err instanceof Error ? err.message : 'Failed to extract data'
+    extractionResult.value = null
+  } finally {
+    extractionLoading.value = false
+  }
+}
+
+async function downloadData(format: ExportFormat) {
+  if (!extractionResult.value || !dataframe.value) return
+
+  const filename = dataframe.value.name || 'dataframe'
+
+  try {
+    await exportTable(extractionResult.value.table as any, {
+      filename,
+      format,
+    })
+  } catch (err) {
+    console.error(`Failed to export as ${format}:`, err)
+    extractionError.value = err instanceof Error ? err.message : `Failed to export as ${format}`
+  }
+}
+
+function downloadArrow() {
+  downloadData('arrow')
+}
+
+function downloadXlsx() {
+  downloadData('xlsx')
+}
 </script>
 
 <template>
@@ -343,6 +469,130 @@ function openEditTagSearch() {
             <h3>DataFrame Metadata</h3>
             <pre v-if="dataframe.metadata && Object.keys(dataframe.metadata).length > 0">{{ JSON.stringify(dataframe.metadata, null, 2) }}</pre>
             <p v-else class="empty-hint">No metadata defined.</p>
+          </div>
+        </TabPanel>
+
+        <TabPanel value="3" header="Data">
+          <div class="data-extraction-section">
+            <div class="extraction-form">
+              <h3>Extract Data</h3>
+
+              <Message v-if="extractionError" severity="error" :closable="true" @close="extractionError = null">
+                {{ extractionError }}
+              </Message>
+
+              <div class="form-row">
+                <div class="field">
+                  <label for="start-time">Start Time *</label>
+                  <DatePicker
+                    id="start-time"
+                    v-model="extractionStartTime"
+                    showTime
+                    hourFormat="24"
+                    dateFormat="yy-mm-dd"
+                    class="w-full"
+                  />
+                </div>
+
+                <div class="field">
+                  <label for="end-time">End Time *</label>
+                  <DatePicker
+                    id="end-time"
+                    v-model="extractionEndTime"
+                    showTime
+                    hourFormat="24"
+                    dateFormat="yy-mm-dd"
+                    class="w-full"
+                  />
+                </div>
+
+                <div class="field">
+                  <label for="interval">Interval *</label>
+                  <InputText
+                    id="interval"
+                    v-model="extractionInterval"
+                    placeholder="1h, 30m, 1d"
+                    class="w-full"
+                  />
+                </div>
+
+                <div class="field align-end">
+                  <Button
+                    label="Fetch Data"
+                    icon="pi pi-download"
+                    :loading="extractionLoading"
+                    @click="handleExtractData"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div v-if="extractionResult" class="extraction-results">
+              <div class="results-header">
+                <h3>Data Preview</h3>
+                <div class="results-actions">
+                  <Button
+                    label="Download Excel"
+                    icon="pi pi-file-excel"
+                    size="small"
+                    severity="success"
+                    @click="downloadXlsx"
+                  />
+                  <Button
+                    label="Arrow"
+                    icon="pi pi-file-export"
+                    size="small"
+                    severity="secondary"
+                    text
+                    @click="downloadArrow"
+                  />
+                </div>
+              </div>
+
+              <div class="stats-bar">
+                <div class="stat-item">
+                  <span class="stat-label">Total Rows:</span>
+                  <span class="stat-value">{{ extractionResult.stats.totalRows }}</span>
+                </div>
+                <div v-for="(count, colName) in extractionResult.stats.nullCounts" :key="colName" class="stat-item">
+                  <span class="stat-label">{{ colName }} Nulls:</span>
+                  <span class="stat-value">{{ count }}</span>
+                </div>
+              </div>
+
+              <DataTable
+                v-if="previewData"
+                :value="previewData.rows"
+                stripedRows
+                class="preview-table"
+              >
+                <Column
+                  v-for="colName in previewData.columns"
+                  :key="colName"
+                  :field="colName"
+                  :header="colName"
+                >
+                  <template #body="{ data }">
+                    <span v-if="data._separator" class="row-separator">...</span>
+                    <span v-else-if="data[colName] === null" class="null-value">null</span>
+                    <span v-else-if="colName === 'timestamp'">{{ new Date(data[colName]).toLocaleString() }}</span>
+                    <span v-else>{{ data[colName] }}</span>
+                  </template>
+                </Column>
+              </DataTable>
+
+              <p class="preview-hint">Showing first 10 and last 10 rows of {{ extractionResult.stats.totalRows }} total rows</p>
+            </div>
+
+            <div v-else-if="!extractionLoading" class="empty-state">
+              <i class="pi pi-chart-line empty-icon"></i>
+              <p>Configure extraction parameters and fetch data to see preview.</p>
+            </div>
+
+            <div v-if="extractionLoading" class="loading-container">
+              <ProgressSpinner />
+              <p>Extracting data from PI Web API...</p>
+            </div>
           </div>
         </TabPanel>
       </TabView>
@@ -778,5 +1028,98 @@ function openEditTagSearch() {
   font-size: 0.875rem;
   color: var(--p-text-muted-color);
   margin: 0;
+}
+
+.data-extraction-section {
+  padding: 1rem;
+}
+
+.extraction-form {
+  margin-bottom: 2rem;
+}
+
+.extraction-form h3 {
+  margin-bottom: 1rem;
+}
+
+.form-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+}
+
+.form-row .field {
+  flex: 1;
+}
+
+.align-end {
+  display: flex;
+  align-items: flex-end;
+}
+
+.extraction-results {
+  margin-top: 2rem;
+}
+
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.results-header h3 {
+  margin: 0;
+}
+
+.results-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.stats-bar {
+  display: flex;
+  gap: 2rem;
+  padding: 1rem;
+  background: var(--p-surface-100);
+  border-radius: var(--p-border-radius);
+  margin-bottom: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.stat-label {
+  font-weight: 500;
+  color: var(--p-text-muted-color);
+}
+
+.stat-value {
+  font-weight: 600;
+}
+
+.preview-table {
+  margin-bottom: 1rem;
+}
+
+.preview-hint {
+  text-align: center;
+  color: var(--p-text-muted-color);
+  font-size: 0.875rem;
+  font-style: italic;
+}
+
+.row-separator {
+  text-align: center;
+  display: block;
+  font-weight: bold;
+  color: var(--p-text-muted-color);
+}
+
+.null-value {
+  color: var(--p-red-500);
+  font-style: italic;
 }
 </style>

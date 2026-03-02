@@ -7,10 +7,13 @@
 import { watch, onMounted, onUnmounted, nextTick } from 'vue'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
 import ProgressSpinner from 'primevue/progressspinner'
 import { useTagSearchStore } from './store'
+import { useDataServersStore } from '../../stores/dataservers'
 
 const store = useTagSearchStore()
+const dataServersStore = useDataServersStore()
 
 // Focus input when modal opens
 watch(() => store.isOpen, async (isOpen) => {
@@ -96,6 +99,17 @@ function handleClose(): void {
     </template>
 
     <div class="tag-search-content" @keydown="handleKeydown">
+      <!-- Data Server Selection -->
+      <Select
+        v-model="dataServersStore.selectedDataServerId"
+        :options="dataServersStore.dataServers"
+        option-label="name"
+        option-value="id"
+        placeholder="Select Data Server"
+        class="dataserver-select"
+        :disabled="!dataServersStore.hasDataServers || dataServersStore.loading"
+      />
+
       <InputText
         :model-value="store.query"
         :placeholder="store.context.placeholder ?? 'Search for PI tags...'"
@@ -136,24 +150,24 @@ function handleClose(): void {
             @click="store.selectTag(tag)"
             @mouseenter="store.setSelectedIndex(index)"
           >
-            <div class="tag-name">
-              <i class="pi pi-tag"></i>
-              <span>{{ tag.name }}</span>
-            </div>
-            <div class="tag-details">
-              <span class="tag-path">{{ tag.path }}</span>
-              <span v-if="tag.valueType" class="tag-type">{{ tag.valueType }}</span>
-              <span v-if="tag.engineeringUnit" class="tag-unit">{{ tag.engineeringUnit }}</span>
-            </div>
-            <div v-if="tag.description" class="tag-description">
-              {{ tag.description }}
-            </div>
+            <i class="pi pi-tag"></i>
+            <span class="tag-name">{{ tag.name }}</span>
+            <span v-if="tag.description" class="tag-descriptor">{{ tag.description }}</span>
           </li>
         </ul>
 
-        <!-- Has more indicator -->
-        <div v-if="store.hasMore" class="tag-search-more">
-          <span>More results available - refine your search</span>
+        <!-- Load More button -->
+        <div v-if="store.hasMore && !store.isLoading" class="tag-search-load-more">
+          <button @click="store.loadMore()" class="load-more-btn">
+            <i class="pi pi-arrow-down"></i>
+            <span>Load More Results</span>
+          </button>
+        </div>
+
+        <!-- Loading more indicator -->
+        <div v-if="store.isLoading && store.hasResults" class="tag-search-loading-more">
+          <ProgressSpinner style="width: 20px; height: 20px" />
+          <span>Loading more...</span>
         </div>
       </div>
     </div>
@@ -201,6 +215,10 @@ function handleClose(): void {
   gap: 1rem;
 }
 
+.dataserver-select {
+  width: 100%;
+}
+
 .tag-search-input {
   width: 100%;
 }
@@ -233,7 +251,10 @@ function handleClose(): void {
 }
 
 .tag-item {
-  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
   border-radius: var(--p-border-radius);
   transition: background-color 0.15s;
@@ -248,51 +269,64 @@ function handleClose(): void {
   background: var(--p-primary-100);
 }
 
-.tag-name {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 500;
-}
-
-.tag-name i {
+.tag-item i {
   color: var(--p-primary-color);
+  flex-shrink: 0;
 }
 
-.tag-details {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 0.25rem;
-  font-size: 0.85rem;
-  color: var(--p-text-muted-color);
+.tag-name {
+  font-weight: 500;
+  flex-shrink: 0;
 }
 
-.tag-path {
-  font-family: monospace;
-}
-
-.tag-type,
-.tag-unit {
-  padding: 0.1rem 0.4rem;
-  background: var(--p-surface-200);
-  border-radius: var(--p-border-radius);
-  font-size: 0.75rem;
-}
-
-.tag-description {
-  margin-top: 0.25rem;
+.tag-descriptor {
   font-size: 0.85rem;
   color: var(--p-text-muted-color);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-left: 0.5rem;
 }
 
-.tag-search-more {
-  text-align: center;
-  padding: 0.5rem;
-  font-size: 0.85rem;
+.tag-search-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 1rem;
+  border-top: 1px solid var(--p-surface-200);
+}
+
+.load-more-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: var(--p-primary-color);
+  color: white;
+  border: none;
+  border-radius: var(--p-border-radius);
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.load-more-btn:hover {
+  background: var(--p-primary-600);
+  transform: translateY(-1px);
+}
+
+.load-more-btn:active {
+  transform: translateY(0);
+}
+
+.tag-search-loading-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
   color: var(--p-text-muted-color);
+  font-size: 0.85rem;
   border-top: 1px solid var(--p-surface-200);
 }
 

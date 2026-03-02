@@ -7,9 +7,10 @@
 import type { TagSearchResult, TagSearchConfig } from '../../domain/tag'
 import { defaultTagSearchConfig } from '../../domain/tag'
 import { searchTags as apiSearchTags } from '../../piwebapi'
+import { useDataServersStore } from '../../stores/dataservers'
 
 export interface TagSearchService {
-  search: (query: string) => Promise<TagSearchResult>
+  search: (query: string, offset?: number) => Promise<TagSearchResult>
   cancel: () => void
   getConfig: () => TagSearchConfig
 }
@@ -50,22 +51,24 @@ export function createTagSearchService(
     }
   }
 
-  function getCachedResult(query: string): TagSearchResult | null {
+  function getCachedResult(query: string, offset: number): TagSearchResult | null {
     if (!mergedConfig.enableCache) return null
 
-    const cached = cache.get(query.toLowerCase())
+    const cacheKey = `${query.toLowerCase()}:${offset}`
+    const cached = cache.get(cacheKey)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       return cached.result
     }
     return null
   }
 
-  function setCachedResult(query: string, result: TagSearchResult): void {
+  function setCachedResult(query: string, offset: number, result: TagSearchResult): void {
     if (!mergedConfig.enableCache) return
-    cache.set(query.toLowerCase(), { result, timestamp: Date.now() })
+    const cacheKey = `${query.toLowerCase()}:${offset}`
+    cache.set(cacheKey, { result, timestamp: Date.now() })
   }
 
-  async function search(query: string): Promise<TagSearchResult> {
+  async function search(query: string, offset = 0): Promise<TagSearchResult> {
     // Cancel any pending search
     cancel()
 
@@ -74,13 +77,17 @@ export function createTagSearchService(
       return { tags: [], hasMore: false }
     }
 
-    // Check cache first
-    const cached = getCachedResult(query)
-    if (cached) {
-      return cached
+    // Check cache first (only cache initial searches, not load-more)
+    if (offset === 0) {
+      const cached = getCachedResult(query, offset)
+      if (cached) {
+        return cached
+      }
     }
 
-    // Return a promise that resolves after debounce
+    // Return a promise that resolves after debounce (only debounce initial searches)
+    const debounceDelay = offset === 0 ? mergedConfig.debounceMs : 0
+
     return new Promise((resolve, reject) => {
       pendingResolve = resolve
       debounceTimer = setTimeout(async () => {
@@ -88,13 +95,25 @@ export function createTagSearchService(
         abortController = new AbortController()
 
         try {
+          // Get selected data server from store
+          const dataServersStore = useDataServersStore()
+          const dataServerWebId = dataServersStore.selectedDataServerId
+
+          if (!dataServerWebId) {
+            throw new Error('No data server selected')
+          }
+
           const result = await apiSearchTags({
             query,
             limit: mergedConfig.limit,
+            offset,
             signal: abortController.signal,
+            dataServerWebId,
           })
 
-          setCachedResult(query, result)
+          if (offset === 0) {
+            setCachedResult(query, offset, result)
+          }
           resolve(result)
         } catch (error) {
           if (error instanceof Error && error.name === 'AbortError') {
@@ -106,7 +125,7 @@ export function createTagSearchService(
         } finally {
           abortController = null
         }
-      }, mergedConfig.debounceMs)
+      }, debounceDelay)
     })
   }
 
